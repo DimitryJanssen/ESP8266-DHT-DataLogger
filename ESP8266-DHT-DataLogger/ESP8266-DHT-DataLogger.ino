@@ -18,23 +18,19 @@ const int DHTPin = D3; //sensor connected to pin:
 // Initialize DHT sensor.
 DHT dht(DHTPin,DHTTYPE);
 
-// Temporary variables
-static char celsiusTemp[7];
-static char fahrenheitTemp[7];
-static char humidityTemp[7];
-
 // Update these with values suitable for your network.
-const char* ssid = "6852JR54";
-const char* password = "19??W!ldzang";
+const char* ssid = "SSID";
+const char* password = "PASSWORD";
 
 // Update these with values suitable for your MQTT config.
-const char* mqtt_server = "172.16.10.10";
-const char* mqtt_clientid = "NodeMCU";
-const char* mqtt_username = "mqtt-sonoff";
-const char* mqtt_password = "19??Mqtt";
+const char* mqtt_server = "172.16.10.10"; //IP or DNS Hostname
+const char* mqtt_clientid = "NodeMCU01";
+const char* mqtt_username = "USERNAME";
+const char* mqtt_password = "PASSWORD";
+const char* mqtt_topic = "tele/NodeMCU/SENSOR";
 
 //NTP Configuration:
-//const char* ntp_host = "172.16.10.10"
+//const char* ntp_host = "172.16.10.10" //IP or DNS Hostname
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -130,18 +126,35 @@ void setup() {
   Serial.print(" Starting Temparature ");
   Serial.print(dht.readTemperature());
   Serial.println('C');
+  
   //LED Configuration:
-  pinMode(D4, OUTPUT);
+  #define LED D4 
+   pinMode(LED, OUTPUT); 
+   noInterrupts(); 
+   timer0_isr_init(); 
+   timer0_attachInterrupt(timer0_ISR); 
+   //timer0_write(ESP.getCycleCount() + 80000000L); // 80MHz == 1sec 
+   interrupts();
 }
 
+void timer0_ISR (void) 
+{
+  if (digitalRead(LED) == HIGH)
+  {
+    digitalWrite(LED, LOW);
+    timer0_write(ESP.getCycleCount() + 5000000L); // 80MHz == 1sec
+  }
+  else
+  {
+    digitalWrite(LED, HIGH);
+    timer0_write(ESP.getCycleCount() + 240000000L); // 80MHz == 1sec
+  }
+} 
+  
 void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  digitalWrite(D4, LOW);           // Turn the LED on (Note that LOW is the voltage level
-  delay(125);
-  digitalWrite(D4, HIGH);          // Turn the LED off by making the voltage HIGH
-  delay(875);
   
   client.loop();
   long now = millis();
@@ -161,6 +174,6 @@ void loop() {
      msg.toCharArray(message,90);
      Serial.println(message);
      //publish sensor data to MQTT broker
-    client.publish("tele/NodeMCU/SENSOR", message);
+    client.publish(mqtt_topic, message);
   }
 }
